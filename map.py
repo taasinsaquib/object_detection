@@ -1,9 +1,22 @@
 # Inspired by Aladdin Persson: https://www.youtube.com/watch?v=FppOzcDvaDI&list=PLhhyoLH6Ijfw0TpCTVTNk42NN08H6UvNq&index=4
 
 import torch
+import matplotlib.pyplot as plt
 from collections import Counter
 
 from iou import iou
+from utils import draw_bboxes
+
+
+# doesn't draw any boxes for some reason...
+def visualize_map(boxes, boxes_labels, num_classes, box_format=''):
+	fig, ax = plt.subplots(1, 2)
+
+	draw_bboxes(ax[0], "Detections", boxes[1:], box_format)
+	draw_bboxes(ax[1], "Labels", boxes_labels[1:], box_format)
+
+	plt.show()
+
 
 def map(boxes_pred, boxes_labels, iou_threshold=0.5, box_format='', num_classes=20):
 	"""
@@ -146,6 +159,7 @@ def main():
 	]
 	t1_correct_mAP = torch.Tensor([1])
 
+	visualize_map(t1_targets, t1_preds, 1, 'midpoint')
 	m = map(t1_preds, t1_targets, iou_threshold=0.5, box_format='midpoint', num_classes=1)
 	assert(t1_correct_mAP - m < eps)
 

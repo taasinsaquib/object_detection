@@ -2,16 +2,12 @@
 
 import torch
 import matplotlib.pyplot as plt
-from   matplotlib.patches import Rectangle
 
 from iou import iou
+from utils import draw_bboxes
 
-def get_cmap(n, name='hsv'):
-	'''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct 
-	RGB color; the keyword argument name must be a standard mpl colormap name.'''
-	return plt.cm.get_cmap(name, n)
 
-def visualize_bboxes(boxes, nms_boxes, num_classes, box_format=''):
+def visualize_nms(boxes, nms_boxes, num_classes, box_format=''):
 	"""
 	Draw bboxes with matplotlib
 
@@ -27,35 +23,11 @@ def visualize_bboxes(boxes, nms_boxes, num_classes, box_format=''):
 
 	fig, ax = plt.subplots(1, 2)
 
-	# Display the image
-	img = torch.full((2, 2, 3), 255, dtype=torch.uint8)
-	ax[0].imshow(img)
-	ax[1].imshow(img)
+	draw_bboxes(ax[0], "Detections", boxes, box_format)
+	draw_bboxes(ax[1], "NMS'd Detections", nms_boxes, box_format)
 
-	# cmap = get_cmap(num_classes)
-	cmap = {1: 'r', 2: 'g', 3: 'b'}
-
-	# Create rectangle patches
-	for box in boxes:
-		if box_format == 'midpoint':
-			rect = Rectangle((box[2] - box[4]/2, box[3] - box[5]/2), box[4], box[5], linewidth=box[1], edgecolor=cmap[box[0]], facecolor='none')
-		else:
-			rect = Rectangle((box[2], box[3]), box[4]-box[2], box[5]-box[3], linewidth=box[1], edgecolor=cmap[box[0]], facecolor='none')
-
-		ax[0].add_patch(rect)
-
-	# Create rectangle patches
-	for box in nms_boxes:
-		if box_format == 'midpoint':
-			rect = Rectangle((box[2] - box[4]/2, box[3] - box[5]/2), box[4], box[5], linewidth=box[1], edgecolor=cmap[box[0]], facecolor='none')
-		else:
-			rect = Rectangle((box[2], box[3]), box[4]-box[2], box[5]-box[3], linewidth=box[1], edgecolor=cmap[box[0]], facecolor='none')
-
-		ax[1].add_patch(rect)
-
-	ax[0].set_title("Detections")
-	ax[1].set_title("NMS'd Detections")
 	plt.show()
+
 
 def nms(pred, iou_threshold, prob_threshold, box_format=''):
 	"""
@@ -81,7 +53,6 @@ def nms(pred, iou_threshold, prob_threshold, box_format=''):
 	bboxes_nms = []
 
 	while bboxes:
-		print(bboxes)
 		chosen_box = bboxes.pop(0)
 
 		# keep boxes of a different class from or low IoU with the chosen box
@@ -105,57 +76,51 @@ def main():
 		[1, 0.7, 0.25, 0.35, 0.3, 0.1],
 		[1, 0.05, 0.1, 0.1, 0.1, 0.1],
 	]
-
 	answer = [[1, 1, 0.5, 0.45, 0.4, 0.5], [1, 0.7, 0.25, 0.35, 0.3, 0.1]]
 
 	nms_boxes = nms(boxes, 7/20, 0.2, 'midpoint')
-	visualize_bboxes(boxes, nms_boxes, 1, 'midpoint')
+	# visualize_nms(boxes, nms_boxes, 1, 'midpoint')
 	assert(sorted(nms_boxes) == sorted(answer))
 
 	# Test 2
 	boxes = [
-        [1, 1, 0.5, 0.45, 0.4, 0.5],
-        [2, 0.9, 0.5, 0.5, 0.2, 0.4],
-        [1, 0.8, 0.25, 0.35, 0.3, 0.1],
-        [1, 0.05, 0.1, 0.1, 0.1, 0.1],
-    ]
-
-	nms_boxes = nms(boxes, 7/20, 0.2, 'midpoint')
-	visualize_bboxes(boxes, nms_boxes, 2)
-
+		[1, 1, 0.5, 0.45, 0.4, 0.5],
+		[2, 0.9, 0.5, 0.5, 0.2, 0.4],
+		[1, 0.8, 0.25, 0.35, 0.3, 0.1],
+		[1, 0.05, 0.1, 0.1, 0.1, 0.1],
+	]
 	answer = [[1, 1, 0.5, 0.45, 0.4, 0.5], [2, 0.9, 0.5, 0.5, 0.2, 0.4], [1, 0.8, 0.25, 0.35, 0.3, 0.1],]
 
+	nms_boxes = nms(boxes, 7/20, 0.2, 'midpoint')
+	# visualize_nms(boxes, nms_boxes, 2, 'midpoint')
 	assert(sorted(nms_boxes) == sorted(answer))
 
 	# Test 3
 	boxes = [
-        [1, 0.9, 0.5, 0.45, 0.4, 0.5],
-        [1, 1, 0.5, 0.5, 0.2, 0.4],
-        [2, 0.8, 0.25, 0.35, 0.3, 0.1],
-        [1, 0.05, 0.1, 0.1, 0.1, 0.1],
-    ]
-
-	nms_boxes = nms(boxes, 7/20, 0.2, 'midpoint')
-	visualize_bboxes(boxes, nms_boxes, 2)
-
+		[1, 0.9, 0.5, 0.45, 0.4, 0.5],
+		[1, 1, 0.5, 0.5, 0.2, 0.4],
+		[2, 0.8, 0.25, 0.35, 0.3, 0.1],
+		[1, 0.05, 0.1, 0.1, 0.1, 0.1],
+	]
 	answer = [[1, 1, 0.5, 0.5, 0.2, 0.4], [2, 0.8, 0.25, 0.35, 0.3, 0.1]]
 
+	nms_boxes = nms(boxes, 7/20, 0.2, 'midpoint')
+	# visualize_nms(boxes, nms_boxes, 2, 'midpoint')
 	assert(sorted(nms_boxes) == sorted(answer))
 
-	# Test 3
+	# Test 4
 	boxes = [
-        [1, 0.9, 0.5, 0.45, 0.4, 0.5],
-        [1, 1, 0.5, 0.5, 0.2, 0.4],
-        [1, 0.8, 0.25, 0.35, 0.3, 0.1],
-        [1, 0.05, 0.1, 0.1, 0.1, 0.1],
-    ]
-
-	nms_boxes = nms(boxes, 7/20, 0.2, 'midpoint')
-	visualize_bboxes(boxes, nms_boxes, 2)
-
+		[1, 0.9, 0.5, 0.45, 0.4, 0.5],
+		[1, 1, 0.5, 0.5, 0.2, 0.4],
+		[1, 0.8, 0.25, 0.35, 0.3, 0.1],
+		[1, 0.05, 0.1, 0.1, 0.1, 0.1],
+	]
 	answer = [[1, 0.9, 0.5, 0.45, 0.4, 0.5], [1, 1, 0.5, 0.5, 0.2, 0.4], [1, 0.8, 0.25, 0.35, 0.3, 0.1]]
 
+	nms_boxes = nms(boxes, 9/20, 0.2, 'midpoint')
+	visualize_nms(boxes, nms_boxes, 2, 'midpoint')
 	assert(sorted(nms_boxes) == sorted(answer))
+
 
 if __name__ == "__main__":
 	main()
