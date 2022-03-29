@@ -159,7 +159,7 @@ def main():
 	]
 	t1_correct_mAP = torch.Tensor([1])
 
-	visualize_map(t1_targets, t1_preds, 1, 'midpoint')
+	visualize_map(t1_preds, t1_targets, 1, 'midpoint')
 	m = map(t1_preds, t1_targets, iou_threshold=0.5, box_format='midpoint', num_classes=1)
 	assert(t1_correct_mAP - m < eps)
 
