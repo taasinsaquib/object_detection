@@ -4,7 +4,7 @@ import torch
 import matplotlib.pyplot as plt
 
 from iou import iou
-from utils import draw_bboxes
+from utils_draw import draw_bboxes
 
 
 def visualize_nms(boxes, nms_boxes, num_classes, box_format=''):

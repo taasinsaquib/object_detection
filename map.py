@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from collections import Counter
 
 from iou import iou
-from utils import draw_bboxes
+from utils_draw import draw_bboxes
 
 
 # doesn't draw any boxes for some reason...
@@ -18,7 +18,7 @@ def visualize_map(boxes, boxes_labels, num_classes, box_format=''):
 	plt.show()
 
 
-def map(boxes_pred, boxes_labels, iou_threshold=0.5, box_format='', num_classes=20):
+def meanAP(boxes_pred, boxes_labels, iou_threshold=0.5, box_format='', num_classes=20):
 	"""
 	Calculate mean average precision for predicted bounding boxes
 
@@ -57,7 +57,6 @@ def map(boxes_pred, boxes_labels, iou_threshold=0.5, box_format='', num_classes=
 			ground_truths_map[c].append(l)
 		else:
 			ground_truths_map[c] = [l]
-
 
 	# find AP for each class **************************************************
 	for c in range(num_classes):
@@ -160,7 +159,7 @@ def main():
 	t1_correct_mAP = torch.Tensor([1])
 
 	visualize_map(t1_preds, t1_targets, 1, 'midpoint')
-	m = map(t1_preds, t1_targets, iou_threshold=0.5, box_format='midpoint', num_classes=1)
+	m = meanAP(t1_preds, t1_targets, iou_threshold=0.5, box_format='midpoint', num_classes=1)
 	assert(t1_correct_mAP - m < eps)
 
 	t2_preds = [
@@ -175,7 +174,7 @@ def main():
 	]
 	t2_correct_mAP = torch.Tensor([1])
 
-	m = map(t2_preds, t2_targets, iou_threshold=0.5, box_format='midpoint', num_classes=1)
+	m = meanAP(t2_preds, t2_targets, iou_threshold=0.5, box_format='midpoint', num_classes=1)
 	assert(t2_correct_mAP - m < eps)
 
 	t3_preds = [
@@ -190,7 +189,7 @@ def main():
 	]
 	t3_correct_mAP = torch.Tensor([0])
 
-	m = map(t3_preds, t3_targets, iou_threshold=0.5, box_format='midpoint', num_classes=2)
+	m = meanAP(t3_preds, t3_targets, iou_threshold=0.5, box_format='midpoint', num_classes=2)
 	assert(t3_correct_mAP - m < eps)
 
 	t4_preds = [
@@ -206,7 +205,7 @@ def main():
 	]
 	t4_correct_mAP = torch.Tensor([5/18])
 
-	m = map(t4_preds, t4_targets, iou_threshold=0.5, box_format='midpoint', num_classes=1)
+	m = meanAP(t4_preds, t4_targets, iou_threshold=0.5, box_format='midpoint', num_classes=1)
 	assert(t4_correct_mAP - m < eps)
 
 

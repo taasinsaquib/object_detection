@@ -30,6 +30,8 @@ class YOLOLoss(nn.Module):
 		ious = torch.cat([iou_b1.unsqueeze(0), iou_b2.unsqueeze(0)], dim=0)
 
 		_, best_box = torch.max(ious, dim=0)
+		best_box = best_box.unsqueeze(-1)
+
 		exists_box  = target[..., 20].unsqueeze(3)	# Iobj_i
 
 		# bbox coordinates, x y w h *******************************************
@@ -42,7 +44,8 @@ class YOLOLoss(nn.Module):
 		box_target = exists_box * target[..., 21:25]
 
 		# sqrt w and h - more even penalty between large and small guesses
-		box_pred[..., 2:4] = torch.sign(box_pred[..., 2:4]) * torch.sqrt(torch.abs(box_pred[..., 2:4]) + 1e-6)	# some pred may be negative early in training
+		# add eps inside sqrt or else backward pass can't compute gradient
+		box_pred[..., 2:4] = torch.sign(box_pred[..., 2:4]) * torch.sqrt(torch.abs(box_pred[..., 2:4] + 1e-6))	# some pred may be negative early in training
 		box_target[..., 2:4] =  torch.sqrt(box_target[..., 2:4])
 
 		# (N, S, S, 4) -> (N*S*S, 4)
@@ -54,10 +57,10 @@ class YOLOLoss(nn.Module):
 		# object loss *********************************************************
 
 		obj_pred = exists_box * (
-			(1 - best_box) * pred[..., 20] + 
-			best_box       * pred[..., 25] 
+			(1 - best_box) * pred[..., 20:21] + 
+			best_box       * pred[..., 25:26] 
 		)
-		obj_target = exists_box * target[..., 21:25]
+		obj_target = exists_box * target[..., 20:21]
 
 		# (N, S, S, 1) -> (N*S*S)
 		obj_loss = self.mse(
@@ -72,22 +75,22 @@ class YOLOLoss(nn.Module):
 
 		# first box
 		no_obj_loss = self.mse(
-			torch.flatten((1 - exists_box) * pred[..., 20],   start_dim=1),
-			torch.flatten((1 - exists_box) * target[..., 20], start_dim=1),
+			torch.flatten((1 - exists_box) * pred[..., 20:21],   start_dim=1),
+			torch.flatten((1 - exists_box) * target[..., 20:21], start_dim=1),
 		)
 
 		# second box
 		no_obj_loss = self.mse(
-			torch.flatten((1 - exists_box) * pred[..., 25],   start_dim=1),
-			torch.flatten((1 - exists_box) * target[..., 20], start_dim=1),
+			torch.flatten((1 - exists_box) * pred[..., 25:26],   start_dim=1),
+			torch.flatten((1 - exists_box) * target[..., 20:21], start_dim=1),
 		)
 
 		# class loss **********************************************************
 
 		# (N, S, S, 20) -> (N*S*S, 20)		
 		class_loss = self.mse(
-			torch.flatten(exists_box * pred[..., :20]  , end=-2)
-			torch.flatten(exists_box * target[..., :20], end=-2)
+			torch.flatten(exists_box * pred[..., :20]  , end_dim=-2),
+			torch.flatten(exists_box * target[..., :20], end_dim=-2)
 		)
 
 		# total loss **********************************************************

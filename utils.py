@@ -1,32 +1,120 @@
 import torch
-import matplotlib.pyplot as plt
-from   matplotlib.patches import Rectangle
+
+from nms import nms
+
+# TORCH ***********************************************************************
+
+def save_checkpoint(state, filename):
+	print("~ Saving Checkpoint ~")
+	torch.save(state, filename)
+
+def load_checkpoint(checkpoint, model, opt):
+	print("~ Loading Checkpoint ~")
+	model.load_state_dict(checkpoint['state_dict'])
+	opt.load_state_dict(checkpoint['optimizer'])
 
 
-def get_cmap(n, name='hsv'):
-	'''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct 
-	RGB color; the keyword argument name must be a standard mpl colormap name.'''
-	return plt.cm.get_cmap(name, n)
+# BBOX CONVERSION *************************************************************
+
+def get_bboxes(loader, model, device, iou_threshold, threshold, pred_formal='cells', box_format='midpoint'):
+
+	all_pred_boxes = []
+	all_true_boxes = []
+
+	model.eval()
+	train_idx = 0
+
+	for batch_idx, (x, y) in enumerate(loader):
+		x, y = x.to(device), y.to(device)
+
+		with torch.no_grad():
+			pred = model(x)
+
+		n = x.shape[0]
+		pred_bboxes = cellBoxes_to_boxes(pred)
+		true_bboxes = cellBoxes_to_boxes(y)
+
+		# for each box, perform NMS
+		for i in range(n):
+
+			nms_bboxes = nms(
+				pred_bboxes[i],
+				iou_threshold,
+				threshold,
+				box_format
+			)
+
+			for nms_b in nms_bboxes:
+				all_pred_boxes.append([train_idx] + nms_b)
+
+			for b in true_bboxes[i]:
+				all_true_boxes.append([train_idx] + b)
+
+			train_idx += 1
+
+	model.train()
+
+	return all_pred_boxes, all_true_boxes
 
 
-def draw_bboxes(ax, title, boxes, box_format=''):
-	cmap = {0: 'yellow', 1: 'r', 2: 'g', 3: 'b'}
+def cellBoxes_to_boxes(out, S=7, B=2, C=20):
+	n = out.shape[0]
 
-	img = torch.full((2, 2, 3), 255, dtype=torch.uint8)
-	ax.imshow(img)
+	pred = cell_to_image(out)
+	pred = pred.reshape(n, S * S, -1)	# (N, S*S, 6)
+	pred[..., 0] = pred[..., 0].long()	# idk why, class label is int
 
-	# Create rectangle patches
-	for box in boxes:
-		if box_format == 'midpoint':
-			rect = Rectangle((box[2] - box[4]/2, box[3] - box[5]/2), box[4], box[5], linewidth=box[1], edgecolor=cmap[box[0]], facecolor='none')
-		else:
-			rect = Rectangle((box[2], box[3]), box[4]-box[2], box[5]-box[3], linewidth=box[1], edgecolor=cmap[box[0]], facecolor='none')
+	bboxes = []
 
-		ax.add_patch(rect)
+	for i in range(n):
+		image_bboxes = []
 
-	ax.set_title(title)
+		for bbox_idx in range(S * S):
+			image_bboxes.append([x.item() for x in pred[i, bbox_idx, :]])	# what's .item()
 
-	return ax
+		bboxes.append(image_bboxes)
+
+	return bboxes
+
+
+def cell_to_image(pred, S=7, B=2, C=20):
+	# return the best box from each cell
+	# convert coordinate from relative to cell to relative to top left of entire image
+	n = pred.shape[0]
+
+	pred = pred.to('cpu')		# not sure why
+	pred = pred.reshape(n, S, S, C + B * 5)
+
+	# 0 index in bbox
+	pred_classes = pred[..., :20].argmax(-1).unsqueeze(-1)
+
+	# 1 index in bbox
+	pred_confidence = torch.max(pred[..., 20], pred[..., 25]).unsqueeze(-1)
+
+	# 2-5 indices in bbox
+	confidences = torch.cat(
+		(pred[..., 20].unsqueeze(0), pred[..., 25].unsqueeze(0)), dim=0
+	)
+	best_box = confidences.argmax(0).unsqueeze(-1)	# (N, S, S, 1)
+
+	bboxes1 = pred[..., 21:25]
+	bboxes2 = pred[..., 26:30]
+	best_box = (1 - best_box) * bboxes1 + best_box * bboxes2
+
+	# offsets to top corner of each cell, scaled by 1/S below 
+	cell_indices = torch.arange(S).repeat(n, S, 1).unsqueeze(-1)
+
+	# best_box contains points relative to the current cell
+	x = 1 / S * (best_box[..., 0:1] + cell_indices)
+	y = 1 / S * (best_box[..., 1:2] + cell_indices.permute(0, 2, 1, 3))
+	w = 1 / S * best_box[..., 2:3]
+	h = 1 / S * best_box[..., 3:4]
+
+	converted_bboxes = torch.cat((x, y, w, h), dim=-1)
+
+	# assemble 6 element bbox
+	converted_labels = torch.cat((pred_classes, pred_confidence, converted_bboxes), dim=-1)
+	return converted_labels
 
 
 def main():

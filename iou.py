@@ -23,26 +23,26 @@ def iou(boxes_pred, boxes_labels, box_format=""):
 
 	# we need the corner format to calculate intersection
 	if box_format == 'midpoint':
-		pred_x1 = boxes_pred[:, 0] - boxes_pred[:, 2] / 2
-		pred_y1 = boxes_pred[:, 1] - boxes_pred[:, 3] / 2
-		pred_x2 = boxes_pred[:, 0] + boxes_pred[:, 2] / 2
-		pred_y2 = boxes_pred[:, 1] + boxes_pred[:, 3] / 2
+		pred_x1 = boxes_pred[..., 0] - boxes_pred[..., 2] / 2
+		pred_y1 = boxes_pred[..., 1] - boxes_pred[..., 3] / 2
+		pred_x2 = boxes_pred[..., 0] + boxes_pred[..., 2] / 2
+		pred_y2 = boxes_pred[..., 1] + boxes_pred[..., 3] / 2
 
-		labels_x1 = boxes_labels[:, 0] - boxes_labels[:, 2] / 2
-		labels_y1 = boxes_labels[:, 1] - boxes_labels[:, 3] / 2
-		labels_x2 = boxes_labels[:, 0] + boxes_labels[:, 2] / 2
-		labels_y2 = boxes_labels[:, 1] + boxes_labels[:, 3] / 2
+		labels_x1 = boxes_labels[..., 0] - boxes_labels[..., 2] / 2
+		labels_y1 = boxes_labels[..., 1] - boxes_labels[..., 3] / 2
+		labels_x2 = boxes_labels[..., 0] + boxes_labels[..., 2] / 2
+		labels_y2 = boxes_labels[..., 1] + boxes_labels[..., 3] / 2
 
 	else:
-		pred_x1 = boxes_pred[:, 0]
-		pred_y1 = boxes_pred[:, 1]
-		pred_x2 = boxes_pred[:, 2]
-		pred_y2 = boxes_pred[:, 3]
+		pred_x1 = boxes_pred[..., 0]
+		pred_y1 = boxes_pred[..., 1]
+		pred_x2 = boxes_pred[..., 2]
+		pred_y2 = boxes_pred[..., 3]
 
-		labels_x1 = boxes_labels[:, 0]
-		labels_y1 = boxes_labels[:, 1]
-		labels_x2 = boxes_labels[:, 2]
-		labels_y2 = boxes_labels[:, 3]
+		labels_x1 = boxes_labels[..., 0]
+		labels_y1 = boxes_labels[..., 1]
+		labels_x2 = boxes_labels[..., 2]
+		labels_y2 = boxes_labels[..., 3]
 
 	# Intersection ************************************************************
 
