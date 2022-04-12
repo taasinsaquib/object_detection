@@ -47,6 +47,8 @@ def nms(pred, iou_threshold, prob_threshold, box_format=''):
 		Tensor, IoU for each row (N pairs of boxes)
 	"""
 
+	# print(pred)
+
 	bboxes = [box for box in pred if box[1] > prob_threshold]	# remove low confidence bboxes
 	bboxes = sorted(bboxes, key=lambda x: x[1], reverse=True)	# sort in descending order of confidence
 

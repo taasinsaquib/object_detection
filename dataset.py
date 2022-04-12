@@ -33,7 +33,6 @@ class VOCDataset(Dataset):
 		img = Image.open(img_path)
 
 		# Load labels into memory
-
 		label_path = os.path.join(self.label_dir, self.annotations.iloc[idx, 1])
 
 		boxes = []
@@ -46,7 +45,7 @@ class VOCDataset(Dataset):
 				boxes.append([class_label, x, y, w, h])
 
 		# Apply transform
-		
+
 		boxes = torch.tensor(boxes)
 		if self.transform:
 			img, boxes = self.transform(img, boxes)

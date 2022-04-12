@@ -4,6 +4,7 @@
 import torch
 import torch.nn as nn
 
+from utils_draw import weight_histograms
 
 # Tuple is a conv layer
 # M is maxpool
@@ -103,6 +104,10 @@ class YOLOv1(nn.Module):
 			# Each grid cell outputs class probabilities and 5 values for each bbox
 			nn.Linear(496, S * S * (C + B * 5)),
 		)
+
+	def tensorboard_histograms(self, writer, step):
+		weight_histograms(writer, step, self.darknet, 'darknet')
+		weight_histograms(writer, step, self.fc,      'fc')
 
 
 def main():

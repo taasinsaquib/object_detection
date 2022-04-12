@@ -1,6 +1,8 @@
 import torch
+import matplotlib.pyplot as plt
 
-from nms import nms
+from nms        import nms
+from utils_draw import draw_bboxes
 
 # TORCH ***********************************************************************
 
@@ -16,7 +18,7 @@ def load_checkpoint(checkpoint, model, opt):
 
 # BBOX CONVERSION *************************************************************
 
-def get_bboxes(loader, model, device, iou_threshold, threshold, pred_formal='cells', box_format='midpoint'):
+def get_bboxes(loader, model, device, iou_threshold, threshold, pred_format='cells', box_format='midpoint', viz=0):
 
 	all_pred_boxes = []
 	all_true_boxes = []
@@ -44,11 +46,32 @@ def get_bboxes(loader, model, device, iou_threshold, threshold, pred_formal='cel
 				box_format
 			)
 
+			# print("NMS", len(pred_bboxes[i]), len(nms_bboxes))
+
+			# cellBoxes_to_boxes returns a lot of 0 probability boxes when converting the labels
+			labels = [box for box in true_bboxes[i] if box[1] > 0.99]
+
 			for nms_b in nms_bboxes:
 				all_pred_boxes.append([train_idx] + nms_b)
 
-			for b in true_bboxes[i]:
+			for b in labels:
 				all_true_boxes.append([train_idx] + b)
+
+			p = torch.Tensor(nms_bboxes)
+			t = torch.Tensor(labels)
+			# print("VIZ", p.size(), t.size())
+
+			# visualize viz first images
+			if train_idx < viz:
+
+				img = x[i].permute(1,2,0).to("cpu")
+
+				fig, ax = plt.subplots(1, 2)
+
+				draw_bboxes(ax[0], "Pred",   nms_bboxes, box_format, img)
+				draw_bboxes(ax[1], "Labels", labels,     box_format, img)
+
+				plt.show()
 
 			train_idx += 1
 

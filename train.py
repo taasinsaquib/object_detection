@@ -6,6 +6,7 @@ import torch.optim                       as optim
 import torchvision.transforms            as transforms
 import torchvision.transforms.functional as FT
 from   torch.utils.data                  import DataLoader
+from   torch.utils.tensorboard           import SummaryWriter
 
 import matplotlib.pyplot as plt
 
@@ -23,8 +24,9 @@ from utils import (
 	get_bboxes,
 	cellBoxes_to_boxes
 )
-from utils_draw import draw_bboxes
+from utils_draw import draw_bboxes, weight_histograms
 
+import datetime
 from tqdm import tqdm
 
 
@@ -32,16 +34,20 @@ from tqdm import tqdm
 LR = 2e-5
 BATCH_SIZE = 16
 WEIGHT_DECAY = 0
-EPOCHS = 10
+EPOCHS = 20
 
 # Constants
 DEVICE      = 'cuda' if torch.cuda.is_available() else 'cpu'
 NUM_WORKERS = 0         # 0 for mac
 PIN_MEMORY  = True		# speeds up training, read more
 
-LOAD_MODEL      = False
+LOAD_MODEL      = True
 LOAD_MODEL_FILE = 'models/model8'
-TEST_MODEL      = False
+TEST_MODEL      = True
+
+LOG_FOLDER = 'logs'
+RUN_FOLDER = 'runs/' + datetime.datetime.now().strftime("%m%d-%H%M%S")
+WRITER     = SummaryWriter(RUN_FOLDER)
 
 S = 7
 B = 2
@@ -66,8 +72,11 @@ class Compose(object):
 
 # torch.autograd.set_detect_anomaly(True)
 
-def train_fn(train_loader, model, opt, loss_fn):
+def train_fn(train_loader, model, opt, loss_fn, writer, e, phase='train'):
 	loop = tqdm(train_loader, leave=True)	# leave creates a bar for each epoch
+
+	train_loss  = 0
+	num_batches = 0
 
 	for batch_idx, (x, y) in enumerate(loop):
 		# double to float?
@@ -80,34 +89,50 @@ def train_fn(train_loader, model, opt, loss_fn):
 		loss.backward()
 		opt.step()
 
+		train_loss  += loss
+		num_batches += 1
 		loop.set_postfix(loss=loss.item())
+
+	writer.add_scalar(f'loss/{phase}', train_loss.item() / num_batches, e)
+	# model.tensorboard_histograms(writer, e)
+
+	writer.flush()
 
 
 def test_fn(loader, model, iou_threshold=0.5, threshold=0.4, box_format='midpoint'):
 
 	# Visualize
-	for x, y in loader:
-		x = x.to(DEVICE)
-		print(y.size())
-		y = y.tolist()
+	# for x, y in loader:
+	# 	x = x.to(DEVICE)
+	# 	print('Labels ', y.size())
+	# 	y = y.tolist()
 
-		pred = model(x)
-		bboxes = cellBoxes_to_boxes(pred)
+	# 	pred = model(x)
+	# 	print(pred.size())
+	# 	bboxes = cellBoxes_to_boxes(pred)
 
-		for i in range(8):	# look at a random amount of images
+	# 	for i in range(8):	# look at a random amount of images
 
-			b = nms(bboxes[i], iou_threshold=iou_threshold, prob_threshold=threshold, box_format=box_format)
-			b = torch.Tensor(b)
-			print(b.size())
-			b = b.tolist()
-			fig, ax = plt.subplots(1, 2)
+	# 		b = nms(bboxes[i], iou_threshold=iou_threshold, prob_threshold=threshold, box_format=box_format)
+	# 		b = torch.Tensor(b)
+	# 		print('Num bboxes guessed: ', b.size())
+	# 		b = b.tolist()
+	# 		fig, ax = plt.subplots(1, 2)
 
-			draw_bboxes(ax[0], "Pred",   b, box_format, x[i].permute(1,2,0).to("cpu"))
-			# draw_bboxes(ax[1], "Labels", y[i], box_format, x[i].permute(1,2,0).to("cpu"))
+	# 		# draw_bboxes(ax[0], "Pred",   b, box_format, x[i].permute(1,2,0).to("cpu"))
+	# 		draw_bboxes(ax[1], "Labels", y[i], box_format, x[i].permute(1,2,0).to("cpu"))
 
-			plt.show()
+	# 		plt.show()
+	pred_boxes, target_boxes = get_bboxes(
+		loader, model, DEVICE, iou_threshold=0.5, threshold=0.4, viz=5
+	)
 
 	# Calculate MAP
+
+	# mean_avg_prec = meanAP(
+	# 	pred_boxes, target_boxes, iou_threshold=0.5
+	# )
+	# print(f'train MAP: {mean_avg_prec}')
 
 def main():
 
@@ -151,7 +176,14 @@ def main():
 		dataset=test_dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS, pin_memory=PIN_MEMORY, shuffle=True, drop_last=False
 	)
 
+	dataiter = iter(train_loader)
+	images, labels = dataiter.next()
+	WRITER.add_graph(model, images)
+	WRITER.flush()
 
+	# model.tensorboard_histograms(WRITER, 0)
+
+	# """
 	# Train Loop **************************************************************
 	if not TEST_MODEL:
 		for e in range(EPOCHS):
@@ -166,6 +198,12 @@ def main():
 			)
 			print(f'train MAP: {mean_avg_prec}')
 
+			checkpoint = {
+				'state_dict': model.state_dict(),
+				'optimizer':  opt.state_dict()
+			}
+			save_checkpoint(checkpoint, LOAD_MODEL_FILE)
+
 			if mean_avg_prec > 0.9:
 				checkpoint = {
 					'state_dict': model.state_dict(),
@@ -175,12 +213,12 @@ def main():
 
 				break
 
-			train_fn(train_loader, model, opt, loss_fn)
+			train_fn(train_loader, model, opt, loss_fn, WRITER, e)
 
 	# Test ********************************************************************
 	else:
 		test_fn(train_loader, model)
-
+	# """
 	# TODO: tensorboard experiments
 
 if __name__ == '__main__':
